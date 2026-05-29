@@ -1,0 +1,62 @@
+# ==========================
+# Virtual environment
+# ==========================
+.venv/
+venv/
+env/
+
+# ==========================
+# Python
+# ==========================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Jupyter
+.ipynb_checkpoints/
+
+# ==========================
+# PyCharm
+# ==========================
+.idea/
+
+# ==========================
+# Build / packaging
+# ==========================
+build/
+dist/
+*.egg-info/
+
+# ==========================
+# Logs
+# ==========================
+*.log
+
+# ==========================
+# Data (keep repo lightweight)
+# ==========================
+data/raw/
+data/processed/
+
+# Optional large outputs
+outputs/
+
+# Model artifacts
+models/
+*.pkl
+*.joblib
+*.h5
+*.pt
+*.pth
+
+# ==========================
+# OS files
+# ==========================
+.DS_Store
+Thumbs.db
+
+# ==========================
+# Temporary files
+# ==========================
+*.tmp
+*.temp

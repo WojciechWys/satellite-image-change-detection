@@ -1,0 +1,6 @@
+0000000000000000000000000000000000000000 e1aa4c6ccc200a17372be0f4b456033cc4d5cb03 WojciechWys <wojciechtadwysocki@gmail.com> 1778782905 +0200	clone: from https://github.com/WojciechWys/satellite-image-change-detection.git
+e1aa4c6ccc200a17372be0f4b456033cc4d5cb03 0644ef56b23309f07e8319346996f001e63c6638 WojciechWys <wojciechtadwysocki@gmail.com> 1778784000 +0200	commit: Initial project structure
+0644ef56b23309f07e8319346996f001e63c6638 abad9309a2d66561024a376c764815b8ce5d61e7 WojciechWys <wojciechtadwysocki@gmail.com> 1778786125 +0200	commit: baseline change detection - otsu, morphology
+abad9309a2d66561024a376c764815b8ce5d61e7 767444717187809ec640ced652fd0efc1c778eea WojciechWys <wojciechtadwysocki@gmail.com> 1779123845 +0200	commit: baseline change detection, refinement
+767444717187809ec640ced652fd0efc1c778eea 6ca2812ddd1aebeeb60e44f8a0d59f95b77e9fb0 WojciechWys <wojciechtadwysocki@gmail.com> 1779830128 +0200	commit: ml baseline random forest
+6ca2812ddd1aebeeb60e44f8a0d59f95b77e9fb0 88049167b608bd94b69e5af126d6a402558e5244 WojciechWys <wojciechtadwysocki@gmail.com> 1779912876 +0200	commit: finish of random forest

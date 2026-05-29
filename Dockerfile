@@ -11,7 +11,7 @@ RUN pip install --upgrade pip && \
     pip install --no-cache-dir -r requirements-api.txt
 
 COPY api/ api/
-COPY outputs/ outputs/
+COPY outputs/best_unet_model.keras outputs/best_unet_model.keras
 
 EXPOSE 8000
 

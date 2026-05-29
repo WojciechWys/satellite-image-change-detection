@@ -20,7 +20,7 @@ MODEL_PATH = "outputs/best_unet_model.keras"
 
 IMG_SIZE = 256
 DEFAULT_THRESHOLD = 0.1
-MIN_CHANGED_AREA_PERCENT = 1.0
+MIN_CHANGED_AREA_PERCENT = 0.5
 
 
 # =========================
@@ -67,6 +67,20 @@ def read_image(upload_file: UploadFile) -> np.ndarray:
 
     return image
 
+def read_image_original(upload_file: UploadFile) -> np.ndarray:
+    """
+    Reads uploaded image without resizing and returns RGB numpy array.
+    """
+
+    image_bytes = upload_file.file.read()
+
+    image = Image.open(
+        io.BytesIO(image_bytes)
+    ).convert("RGB")
+
+    image = np.array(image)
+
+    return image
 
 def preprocess_images(
     before: np.ndarray,
@@ -133,6 +147,94 @@ def mask_to_png_bytes(mask: np.ndarray) -> bytes:
     )
 
     return buffer.getvalue()
+
+def predict_tiled(
+    before: np.ndarray,
+    after: np.ndarray,
+    threshold: float = DEFAULT_THRESHOLD,
+    tile_size: int = IMG_SIZE
+):
+    """
+    Runs U-Net prediction tile-by-tile and stitches the result back.
+    Assumes before and after have the same shape.
+    """
+
+    h, w, _ = before.shape
+
+    pad_h = (tile_size - h % tile_size) % tile_size
+    pad_w = (tile_size - w % tile_size) % tile_size
+
+    before_padded = np.pad(
+        before,
+        (
+            (0, pad_h),
+            (0, pad_w),
+            (0, 0)
+        ),
+        mode="reflect"
+    )
+
+    after_padded = np.pad(
+        after,
+        (
+            (0, pad_h),
+            (0, pad_w),
+            (0, 0)
+        ),
+        mode="reflect"
+    )
+
+    hp, wp, _ = before_padded.shape
+
+    proba_full = np.zeros(
+        (hp, wp),
+        dtype=np.float32
+    )
+
+    for y in range(0, hp, tile_size):
+
+        for x in range(0, wp, tile_size):
+
+            before_tile = before_padded[
+                y:y+tile_size,
+                x:x+tile_size
+            ]
+
+            after_tile = after_padded[
+                y:y+tile_size,
+                x:x+tile_size
+            ]
+
+            before_tile = before_tile.astype(np.float32) / 255.0
+            after_tile = after_tile.astype(np.float32) / 255.0
+
+            model_input = np.concatenate(
+                [before_tile, after_tile],
+                axis=-1
+            )
+
+            model_input = np.expand_dims(
+                model_input,
+                axis=0
+            )
+
+            pred_tile = model(
+                model_input,
+                training=False
+            ).numpy()[0, :, :, 0]
+
+            proba_full[
+                y:y+tile_size,
+                x:x+tile_size
+            ] = pred_tile
+
+    proba_full = proba_full[:h, :w]
+
+    pred_mask = (
+        proba_full > threshold
+    ).astype(np.uint8)
+
+    return pred_mask, proba_full
 
 # =========================
 # ROUTES
@@ -267,6 +369,126 @@ def predict_unet_mask(
         pred_mask = (
             pred_proba > threshold
         ).astype(np.uint8)
+
+        png_bytes = mask_to_png_bytes(
+            pred_mask
+        )
+
+        return Response(
+            content=png_bytes,
+            media_type="image/png"
+        )
+
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": str(e)
+            }
+        )
+
+@app.post("/predict/unet/tiled")
+def predict_unet_tiled(
+    before: UploadFile = File(...),
+    after: UploadFile = File(...),
+    threshold: float = Form(DEFAULT_THRESHOLD)
+):
+    """
+    Predicts binary change mask using tiled inference.
+    Recommended for full-size images.
+    """
+
+    try:
+        before_img = read_image_original(before)
+        after_img = read_image_original(after)
+
+        if before_img.shape != after_img.shape:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "error": "Before and after images must have the same shape."
+                }
+            )
+
+        pred_mask, pred_proba = predict_tiled(
+            before_img,
+            after_img,
+            threshold=threshold
+        )
+
+        changed_area_percent = float(
+            pred_mask.sum()
+            / pred_mask.size
+            * 100
+        )
+
+        change_detected = (
+            changed_area_percent
+            >= MIN_CHANGED_AREA_PERCENT
+        )
+
+        mask_base64 = mask_to_base64(
+            pred_mask
+        )
+
+        return {
+            "model": "U-Net",
+            "inference_mode": "tiled",
+            "threshold": threshold,
+            "tile_size": IMG_SIZE,
+            "original_image_shape": before_img.shape,
+            "change_detected": change_detected,
+            "changed_area_percent": round(
+                changed_area_percent,
+                4
+            ),
+            "probability_min": float(
+                pred_proba.min()
+            ),
+            "probability_max": float(
+                pred_proba.max()
+            ),
+            "probability_mean": float(
+                pred_proba.mean()
+            ),
+            "mask_png_base64": mask_base64
+        }
+
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": str(e)
+            }
+        )
+
+@app.post("/predict/unet/tiled/mask")
+def predict_unet_tiled_mask(
+    before: UploadFile = File(...),
+    after: UploadFile = File(...),
+    threshold: float = Form(DEFAULT_THRESHOLD)
+):
+    """
+    Returns tiled U-Net prediction mask directly as PNG.
+    """
+
+    try:
+        before_img = read_image_original(before)
+        after_img = read_image_original(after)
+
+        if before_img.shape != after_img.shape:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "error": "Before and after images must have the same shape."
+                }
+            )
+
+        pred_mask, _ = predict_tiled(
+            before_img,
+            after_img,
+            threshold=threshold
+        )
 
         png_bytes = mask_to_png_bytes(
             pred_mask
